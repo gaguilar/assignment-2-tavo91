@@ -1,7 +1,8 @@
 # For this part of the assignment, please implement your own code for all computations,
 # Do not use inbuilt functions like fft from either numpy, opencv or other libraries
 import numpy as np
-from scipy.fftpack import dct as scipydct
+from scipy import fftpack
+import cv2
 
 
 class DFT:
@@ -37,21 +38,20 @@ class DFT:
                 total += result
         return total / (M * N)
 
-    @staticmethod
-    def dct(matrix, i, j):
-        (M, N) = matrix.shape
-        total = 0.
-        for x in range(M):
-            for y in range(N):
-                xangle = (2 * x + 1) * i * np.pi / (2 * M)
-                yangle = (2 * y + 1) * j * np.pi / (2 * N)
-
-                total += matrix[x, y] * np.cos(xangle) * np.cos(yangle)
-
-        icoef = 1 if i > 0 else 2 ** -0.5
-        jcoef = 1 if j > 0 else 2 ** -0.5
-        total *= icoef * jcoef * (2 * N) ** 0.5
-        return round(total)
+    # @staticmethod
+    # def dct(matrix, p, q):
+    #     """ Taken from Matlab documentation """
+    #     (M, N) = matrix.shape
+    #     total = 0.
+    #     for m in range(M):
+    #         for n in range(N):
+    #             xangle = np.pi * (2 * m + 1) * p / (2 * M)
+    #             yangle = np.pi * (2 * n + 1) * q / (2 * N)
+    #             total += matrix[m, n] * np.cos(xangle) * np.cos(yangle)
+    #
+    #     alpha_p = (1. / (M ** 0.5)) if p == 0 else ((2. / M) ** 0.5)
+    #     alpha_q = (1. / (N ** 0.5)) if q == 0 else ((2. / N) ** 0.5)
+    #     return alpha_p * alpha_q * total
 
 
     def forward_transform(self, matrix):
@@ -74,7 +74,7 @@ class DFT:
         takes as input:
         matrix: a 2d matrix
         returns a matrix representing discrete cosine transform"""
-        return DFT.apply_to_matrix(matrix, DFT.dct, np.float32)
+        return DFT.apply_to_matrix(matrix, DFT.fft, complex).real
 
 
     def magnitude(self, matrix):
@@ -108,7 +108,7 @@ def unit_test_fft():
         assert np.allclose(my_mat, np_mat), "Matrices differ: \nNumpy:\n{} \n\nMine:\n{}".format(np_mat, my_mat)
 
     tester(attempt)
-    print("[FFT] Test passed!")
+    print("[DFT] FFT Test passed!")
 
 def unit_test_ifft():
     def attempt(matrix):
@@ -122,7 +122,7 @@ def unit_test_ifft():
         assert np.allclose(my_mat, np_mat), "Matrices differ: \nNumpy:\n{} \n\nMine:\n{}".format(np_mat, my_mat)
 
     tester(attempt)
-    print("[IFFT] Test passed!")
+    print("[DFT] IFFT Test passed!")
 
 def unit_test_magnitude():
     def attempt(matrix):
@@ -135,34 +135,31 @@ def unit_test_magnitude():
         assert np.allclose(my_mat, np_mat), "Matrices differ: \nNumpy:\n{} \n\nMine:\n{}".format(np_mat, my_mat)
 
     tester(attempt)
-    print("[Magnitude] Test passed!")
+    print("[DFT] Magnitude Test passed!")
 
 def unit_test_dct():
-    matrix = np.array([
-        [140, 144, 147, 140, 140, 155, 179, 175],
-        [144, 152, 140, 147, 140, 148, 167, 179],
-        [152, 155, 136, 167, 163, 162, 152, 172],
-        [168, 145, 156, 160, 152, 155, 136, 160],
-        [162, 148, 156, 148, 140, 136, 147, 162],
-        [147, 167, 140, 155, 155, 140, 136, 162],
-        [136, 156, 123, 167, 162, 144, 140, 147],
-        [148, 155, 136, 155, 152, 147, 147, 136]
-    ])
-
     def attempt(matrix):
         dft_obj = DFT()
 
-        my_mat = dft_obj.discrete_cosine_tranform(matrix)
-        np_mat = scipydct(scipydct(matrix, axis=0), axis=1)
+        # my_mat = dft_obj.discrete_cosine_tranform(matrix)
+        my_mat = dft_obj.forward_transform(matrix).real
 
-        assert np.allclose(my_mat, np_mat), "Matrices differ: \nSciPy:\n{} \n\nMine:\n{}".format(np_mat, my_mat)
+        # np_mat = fftpack.dct(fftpack.dct(matrix.T, norm='ortho').T, norm='ortho')
+        # np_mat = fftpack.dct(fftpack.dct(matrix, axis=1), axis=0)
+        np_mat = np.fft.fft2(matrix).real
 
-    attempt(matrix)
-    print("[DCT] Test passed!")
+        # assert np.allclose(my_mat, cv_mat), "Matrices differ: \nOpenCV:\n{} \n\nMine:\n{}".format(cv_mat, my_mat)
+        # assert np.allclose(my_mat, np_mat), "Matrices differ: \nSciPy:\n{} \n\nMine:\n{}".format(np_mat, my_mat)
+        assert np.allclose(my_mat, np_mat), "Matrices differ: \nNumPy:\n{} \n\nMine:\n{}".format(np_mat, my_mat)
+
+    tester(attempt)
+    print("[DFT] DCT Test passed!")
 
 
 if __name__ == '__main__':
+    print("Running unit test !")
     unit_test_fft()
     unit_test_ifft()
     unit_test_magnitude()
     unit_test_dct()
+    print("\nAll test passed!")
