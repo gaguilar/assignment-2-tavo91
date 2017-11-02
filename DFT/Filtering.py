@@ -3,7 +3,6 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy import signal, misc
 
 import cv2
 
@@ -20,7 +19,7 @@ class Filtering:
     cutoff = None
     order = None
 
-    def __init__(self, image, filter_name, cutoff, order = 0):
+    def __init__(self, image, filter_name, cutoff, order=0):
         """initializes the variables frequency filtering on an input image
         takes as input:
         image: the input image
@@ -52,18 +51,13 @@ class Filtering:
         shape: the shape of the mask to be generated
         cutoff: the cutoff frequency of the ideal filter
         returns a ideal low pass mask"""
-        rows, cols = self.image.shape
-        crow, ccol = rows / 2, cols / 2
-
-        mask = np.zeros((rows, cols), np.uint8)
-
-        for row in range(rows):
-            for col in range(cols):
-                dist = ((row - crow) ** 2 + (col - ccol) ** 2) ** 0.5
-                if dist <= cutoff:
-                    mask[row, col] = 1
-        return mask
-
+        rows, cols = shape
+        x = np.linspace(-0.5, 0.5, self.image.shape[0])  * rows
+        y = np.linspace(-0.5, 0.5, self.image.shape[1])  * cols
+        radius = np.sqrt((x**2)[np.newaxis] + (y**2)[:, np.newaxis])
+        filt = np.ones(self.image.shape)
+        filt[radius > cutoff] = 0
+        return filt
 
     def get_ideal_high_pass_filter(self, shape, cutoff):
         """Computes a Ideal high pass mask
@@ -71,35 +65,31 @@ class Filtering:
         shape: the shape of the mask to be generated
         cutoff: the cutoff frequency of the ideal filter
         returns a ideal high pass mask"""
+        return 1. - self.get_ideal_low_pass_filter(shape, cutoff)
 
-        #Hint: May be one can use the low pass filter function to get a high pass mask
-
-        
-        return 0
-
-    def get_butterworth_low_pass_filter(self, shape, cutoff, order):
+    def get_butterworth_low_pass_filter(self, shape, cutoff):
         """Computes a butterworth low pass mask
         takes as input:
         shape: the shape of the mask to be generated
         cutoff: the cutoff frequency of the butterworth filter
         order: the order of the butterworth filter
         returns a butterworth low pass mask"""
+        rows, cols = shape
+        x = np.linspace(-0.5, 0.5, cols) * cols
+        y = np.linspace(-0.5, 0.5, rows) * rows
+        radius = np.sqrt((x ** 2)[np.newaxis] + (y ** 2)[:, np.newaxis])
+        filt = 1 / (1.0 + (radius / cutoff) ** (2 * self.order))
+        return filt
 
-        
-        return 0
 
-    def get_butterworth_high_pass_filter(self, shape, cutoff, order):
+    def get_butterworth_high_pass_filter(self, shape, cutoff):
         """Computes a butterworth high pass mask
         takes as input:
         shape: the shape of the mask to be generated
         cutoff: the cutoff frequency of the butterworth filter
         order: the order of the butterworth filter
         returns a butterworth high pass mask"""
-
-        #Hint: May be one can use the low pass filter function to get a high pass mask
-
-        
-        return 0
+        return 1. - self.get_butterworth_low_pass_filter(shape, cutoff)
 
     def get_gaussian_low_pass_filter(self, shape, cutoff):
         """Computes a gaussian low pass mask
@@ -107,9 +97,13 @@ class Filtering:
         shape: the shape of the mask to be generated
         cutoff: the cutoff frequency of the gaussian filter (sigma)
         returns a gaussian low pass mask"""
-
-        
-        return 0
+        rows, cols = shape
+        x = np.linspace(-0.5, 0.5, cols) * cols
+        y = np.linspace(-0.5, 0.5, rows) * rows
+        radius = np.sqrt((x ** 2)[np.newaxis] + (y ** 2)[:, np.newaxis])
+        sigma = cutoff
+        filt = np.exp(-(radius ** 2) / (2 * (sigma ** 2)))
+        return filt
 
     def get_gaussian_high_pass_filter(self, shape, cutoff):
         """Computes a gaussian high pass mask
@@ -117,11 +111,7 @@ class Filtering:
         shape: the shape of the mask to be generated
         cutoff: the cutoff frequency of the gaussian filter (sigma)
         returns a gaussian high pass mask"""
-
-        #Hint: May be one can use the low pass filter function to get a high pass mask
-
-        
-        return 0
+        return 1. - self.get_gaussian_low_pass_filter(shape, cutoff)
 
     def post_process_image(self, image):
         """Post process the image to create a full contrast stretch of the image
@@ -132,39 +122,71 @@ class Filtering:
         1. Full contrast stretch (fsimage)
         2. take negative (255 - fsimage)
         """
-        hist, bins = np.histogram(image.flatten(), 256, [0, 256])
+        img = np.round(image).astype(np.uint8)
+        A, B = np.min(img), np.max(img)
+        K = 256.
+        frac = (K - 1.) / (B - A)
+        img = np.round((img - A) * frac + 0.5)
+        return img
 
-        cdf = hist.cumsum()
+    def apply(self, filter_fn):
+        fft_orig = np.fft.fftshift(np.fft.fft2(self.image))
+        filt = filter_fn(self.image.shape, self.cutoff)
+        fft_new = fft_orig * filt
+        recon_image = np.abs(np.fft.ifft2(np.fft.ifftshift(fft_new)))
+        recon_image = self.post_process_image(recon_image)
+        return fft_orig, filt, fft_new, recon_image
 
-        # cdf_normalized = cdf * hist.max() / cdf.max()
-        # plt.plot(cdf_normalized, color='b')
-        # plt.hist(image.flatten(), 256, [0, 256], color='r')
-        # plt.xlim([0, 256])
-        # plt.legend(('cdf', 'histogram'), loc='upper left')
-        # plt.show()
+    def add_subplot(self, r, c, indexes, fft_orig, filt, fft_new, recon_image):
+        plt.subplot(r, c, indexes[0]), plt.title('Original')
+        plt.imshow(self.image), plt.gray(), plt.axis('off')
 
+        plt.subplot(r, c, indexes[1]), plt.title('FFT')
+        plt.imshow(np.log(np.abs(fft_orig))), plt.gray(), plt.axis('off')
 
-        cdf_m = np.ma.masked_equal(cdf, 0)
-        cdf_m = (cdf_m - cdf_m.min()) * 255 / (cdf_m.max() - cdf_m.min())
-        cdf = np.ma.filled(cdf_m, 0).astype('uint8')
+        plt.subplot(r, c, indexes[2]), plt.title('Filter')
+        plt.imshow(filt), plt.gray(), plt.axis('off')
 
-        print(cdf.shape)
-        print(np.min(image), np.max(image))
+        plt.subplot(r, c, indexes[3]), plt.title('Filtered FFT')
+        plt.imshow(np.log(np.abs(fft_new))), plt.gray(), plt.axis('off')
 
-        # temp = image
-        # temp_img = np.abs(temp - np.min(image) * 255 / np.max(image) - np.min(image)).astype(int)
-        # print(temp_img[:10, :10])
-        image2 = np.zeros(image.shape)
-        for i in range(image.shape[0]):
-            for j in range(image.shape[1]):
-                image2[i, j] = cdf[int(image[i, j])]
-                # image2[i, j] = cdf[temp_img[i, j]]
+        plt.subplot(r, c, indexes[4]), plt.title('Restored')
+        plt.imshow(recon_image), plt.gray(), plt.axis('off')
 
-        # print()
-        # print()
-        print(image2[:10, :10])
-        return image2
+    def debug(self):
+        r, c = 6, 5
 
+        fft_orig, filt, fft_new, recon_image = self.apply(self.get_ideal_low_pass_filter)
+        self.add_subplot(r, c, range(1, 6), fft_orig, filt, fft_new, recon_image)
+
+        fft_orig, filt, fft_new, recon_image = self.apply(self.get_ideal_high_pass_filter)
+        self.add_subplot(r, c, range(6, 11), fft_orig, filt, fft_new, recon_image)
+
+        temp = self.order
+        self.order = 2
+        fft_orig, filt, fft_new, recon_image = self.apply(self.get_butterworth_low_pass_filter)
+        self.add_subplot(r, c, range(11, 16), fft_orig, filt, fft_new, recon_image)
+
+        fft_orig, filt, fft_new, recon_image = self.apply(self.get_butterworth_high_pass_filter)
+        self.add_subplot(r, c, range(16, 21), fft_orig, filt, fft_new, recon_image)
+        self.order = temp
+
+        fft_orig, filt, fft_new, recon_image = self.apply(self.get_gaussian_low_pass_filter)
+        self.add_subplot(r, c, range(21, 26), fft_orig, filt, fft_new, recon_image)
+
+        fft_orig, filt, fft_new, recon_image = self.apply(self.get_gaussian_high_pass_filter)
+        self.add_subplot(r, c, range(26, 31), fft_orig, filt, fft_new, recon_image)
+
+        plt.show()
+
+    @staticmethod
+    def mag(mat):
+        mat = np.abs(mat)
+        for i in range(mat.shape[0]):
+            for j in range(mat.shape[0]):
+                if mat[i, j] != 0:
+                    mat[i, j] = np.log(mat[i, j])
+        return mat
 
     def filtering(self):
         """Performs frequency filtering on an input image
@@ -187,61 +209,21 @@ class Filtering:
         filtered image, magnitude of DFT, magnitude of filtered DFT: Make sure all images being returned have grey
         scale full contrast stretch and dtype=uint8
         """
+        # This print the whole pipeline for each of the algortihms in both high and low levels
+        # self.debug()
 
-        # # Step 1
-        # fft = np.fft.fft2(self.image)
-        # # Step 2
-        # shifted_fft = np.fft.fftshift(fft)
-        # # Step 3
-        # magnitude_spectrum = np.log(np.abs(shifted_fft))
-        # img_step_3 = self.filter(img_step_2)
-        # img_step_4 = np.convolve(img_step_3)
-        # img_step_5 = np.fft.ifftshift(img_step_4)
-        # img_step_6 = np.fft.ifft2(img_step_5)
-        # img_step_7 = np.absolute(img_step_6)
-        # img_step_8 = self.post_process_image(img_step_7)
+        fft_orig = np.fft.fftshift(np.fft.fft2(self.image))
+        filt = self.filter(self.image.shape, self.cutoff)
+        fft_new = fft_orig * filt
+        restored = np.abs(np.fft.ifft2(np.fft.ifftshift(fft_new)))
 
-        def mag(matrix):
-            matrix = np.abs(matrix)
-            matrix = np.log(matrix)
-            return matrix
+        # self.add_subplot(1, 5, range(1, 6), fft_orig, filt, fft_new, restored)
+        # plt.show()
 
-        f, axarr = plt.subplots(2, 4)
-        axarr[0, 0].imshow(self.image, cmap='gray')
-        axarr[0, 0].set_title('Input Image')
+        return [
+            self.post_process_image(restored),
+            self.post_process_image(Filtering.mag(fft_orig)),
+            self.post_process_image(Filtering.mag(fft_new))
+        ]
 
-        fft = np.fft.fft2(self.image)
-        axarr[0, 1].imshow(mag(fft), cmap='gray')
-        axarr[0, 1].set_title('FFT')
 
-        shifted_fft = np.fft.fftshift(fft)
-        axarr[0, 2].imshow(mag(shifted_fft), cmap='gray')
-        axarr[0, 2].set_title('Shifted FFT')
-
-        mask = self.filter(None, self.cutoff)
-        # mask[crow - round(frow / 2):crow + round(frow / 2), ccol - round(fcol/2):ccol + round(fcol/2)] = filt
-        axarr[0, 3].imshow(mask, cmap='gray')
-        axarr[0, 3].set_title('Filter')
-
-        # conv_image = signal.convolve2d(mag(shifted_fft), mask)
-        conv_image = shifted_fft * mask
-        axarr[1, 0].imshow(mag(conv_image), cmap='gray')
-        axarr[1, 0].set_title('Conv SFFT')
-
-        inv_shifted_image = np.fft.ifftshift(conv_image)
-        axarr[1, 1].imshow(mag(inv_shifted_image), cmap='gray')
-        axarr[1, 1].set_title('Shifted IFFT')
-
-        iff_image = np.fft.ifft2(inv_shifted_image)
-        axarr[1, 2].imshow(mag(iff_image), cmap='gray')
-        axarr[1, 2].set_title('IFFT')
-
-        processed_image = self.post_process_image(mag(iff_image))
-        axarr[1, 3].imshow(processed_image, cmap='gray')
-        axarr[1, 3].set_title('Post')
-
-        plt.setp([a.get_xticklabels() for b in axarr for a in b], visible=False)
-        plt.setp([a.get_yticklabels() for b in axarr for a in b], visible=False)
-        plt.show()
-
-        return [self.image, self.image, self.image]

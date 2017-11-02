@@ -56,7 +56,7 @@ def main():
         print("Mask not specified using default (ideal_l)")
         print("use the -h option to see usage information")
         mask = 'ideal_l'
-    elif args.mask not in ['ideal_l', 'ideal_h', 'butterworth_l', 'butterworth_h', 'gaussian_l' or 'gaussian_h']:
+    elif args.mask not in ['ideal_l', 'ideal_h', 'butterworth_l', 'butterworth_h', 'gaussian_l', 'gaussian_h']:
         print("Unknown mask, using default (ideal_l)")
         print("use the -h option to see usage information")
         mask = 'ideal_l'
