@@ -157,9 +157,9 @@ def unit_test_dct():
 
 
 if __name__ == '__main__':
-    print("Running unit test !")
+    print("Running unit tests!")
     unit_test_fft()
     unit_test_ifft()
     unit_test_magnitude()
     unit_test_dct()
-    print("\nAll test passed!")
+    print("\nAll tests passed!")
