@@ -1,9 +1,6 @@
 # For this part of the assignment, please implement your own code for all computations,
 # Do not use inbuilt functions like fft from either numpy, opencv or other libraries
 import numpy as np
-from scipy import fftpack
-import cv2
-
 
 class DFT:
     @staticmethod
@@ -37,22 +34,6 @@ class DFT:
                 result   = matrix[m, n] * np.exp(exponent)
                 total += result
         return total / (M * N)
-
-    # @staticmethod
-    # def dct(matrix, p, q):
-    #     """ Taken from Matlab documentation """
-    #     (M, N) = matrix.shape
-    #     total = 0.
-    #     for m in range(M):
-    #         for n in range(N):
-    #             xangle = np.pi * (2 * m + 1) * p / (2 * M)
-    #             yangle = np.pi * (2 * n + 1) * q / (2 * N)
-    #             total += matrix[m, n] * np.cos(xangle) * np.cos(yangle)
-    #
-    #     alpha_p = (1. / (M ** 0.5)) if p == 0 else ((2. / M) ** 0.5)
-    #     alpha_q = (1. / (N ** 0.5)) if q == 0 else ((2. / N) ** 0.5)
-    #     return alpha_p * alpha_q * total
-
 
     def forward_transform(self, matrix):
         """Computes the forward Fourier transform of the input matrix
@@ -141,15 +122,9 @@ def unit_test_dct():
     def attempt(matrix):
         dft_obj = DFT()
 
-        # my_mat = dft_obj.discrete_cosine_tranform(matrix)
         my_mat = dft_obj.forward_transform(matrix).real
-
-        # np_mat = fftpack.dct(fftpack.dct(matrix.T, norm='ortho').T, norm='ortho')
-        # np_mat = fftpack.dct(fftpack.dct(matrix, axis=1), axis=0)
         np_mat = np.fft.fft2(matrix).real
 
-        # assert np.allclose(my_mat, cv_mat), "Matrices differ: \nOpenCV:\n{} \n\nMine:\n{}".format(cv_mat, my_mat)
-        # assert np.allclose(my_mat, np_mat), "Matrices differ: \nSciPy:\n{} \n\nMine:\n{}".format(np_mat, my_mat)
         assert np.allclose(my_mat, np_mat), "Matrices differ: \nNumPy:\n{} \n\nMine:\n{}".format(np_mat, my_mat)
 
     tester(attempt)
